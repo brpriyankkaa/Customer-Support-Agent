@@ -13,7 +13,7 @@ const NAV_LINKS = [
   { label: 'Leadership, Values & Ethics', href: '#',  active: false },
 ]
 
-export default function Navbar() {
+export default function Navbar({ onAdminClick }) {
   const [langOpen, setLangOpen] = useState(false)
 
   return (
@@ -29,24 +29,32 @@ export default function Navbar() {
           />
         </a>
 
-        {/* ── Nav links + language ── */}
-        <div className="flex items-center gap-7">
-          {NAV_LINKS.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className={[
-                'text-[13px] whitespace-nowrap pb-0.5 transition-colors',
-                link.active
-                  ? 'font-semibold text-gray-800 border-b-2 border-gray-700'
-                  : 'text-gray-500 hover:text-gray-800',
-              ].join(' ')}
-            >
-              {link.label}
-            </a>
-          ))}
+        {/* ── Nav links + actions ── */}
+        <div className="flex items-center gap-5">
+          <div className="flex items-center gap-7">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                className={[
+                  'text-[13px] whitespace-nowrap pb-0.5 transition-colors',
+                  link.active
+                    ? 'font-semibold text-gray-800 border-b-2 border-gray-700'
+                    : 'text-gray-500 hover:text-gray-800',
+                ].join(' ')}
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
 
-          {/* Language picker */}
+          <button
+            onClick={onAdminClick}
+            className="text-[13px] font-semibold text-capgemini-darkblue hover:text-capgemini-navy transition-colors"
+          >
+            Admin
+          </button>
+
           <div className="relative">
             <button
               onClick={() => setLangOpen((v) => !v)}

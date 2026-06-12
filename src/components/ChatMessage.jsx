@@ -3,7 +3,7 @@
  * Renders a single chat bubble.
  
  */
-import { LOGO } from '../assets/images.js'
+import { LOGO, LOGO_SRC } from '../assets/images.js'
 
 /** Very lightweight markdown → JSX (no external dependency needed) */
 function renderMarkdown(text) {
