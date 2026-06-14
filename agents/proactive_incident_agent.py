@@ -3,117 +3,213 @@ import os
 import time
 from collections import Counter
 
-from services.gemini_service import analyze_queries
-#from notifier import notify
+from services.gemini_service import generate_response
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-INTERACTIONS_FILE = os.path.join(
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+INTENT_LOGS_FILE = os.path.join(
     BASE_DIR,
     "data",
-    "interactions.json"
+    "intent_logs.json"
 )
 
-INCIDENT_FILE = os.path.join(
-    BASE_DIR,
-    "data",
-    "incident_reports.json"
-)
 
-print("Proactive Incident Agent Started...")
+def analyze_logs(logs):
 
-while True:
+    prompt = f"""
+You are a Proactive Incident Detection Agent.
 
-    print("\nWaiting 15 seconds...")
+Analyze these classified support logs.
 
-    time.sleep(15)
+Each log contains:
+- intent
+- issue
+- severity
+- confidence
+
+Logs:
+{json.dumps(logs, indent=2)}
+
+Tasks:
+
+1. Identify recurring issues.
+2. Determine whether an incident exists.
+3. Assign incident severity.
+4. Estimate affected users.
+5. Suggest likely root cause.
+6. Recommend next action.
+
+Return ONLY valid JSON.
+
+Example:
+
+{{
+    "incident_detected": true,
+    "category": "IT_SUPPORT",
+    "severity": "HIGH",
+    "affected_users": 6,
+    "root_cause": "VPN service outage",
+    "recommended_action": "Investigate VPN infrastructure immediately"
+}}
+"""
+
+    response = generate_response(prompt)
 
     try:
 
-        with open(INTERACTIONS_FILE, "r") as f:
-            interactions = json.load(f)
+        clean = response.strip()
 
-        if len(interactions) < 10:
+        if clean.startswith("```json"):
+            clean = clean.replace(
+                "```json",
+                "",
+                1
+            )
+
+        if clean.endswith("```"):
+            clean = clean[:-3]
+
+        clean = clean.strip()
+
+        return json.loads(clean)
+
+    except Exception:
+
+        return {
+            "incident_detected": False,
+            "category": "UNKNOWN",
+            "severity": "LOW",
+            "affected_users": 0,
+            "root_cause": "Unable to parse response",
+            "recommended_action": "Manual review required"
+        }
+
+
+def run_proactive_monitor():
+
+    print("Proactive Incident Agent Started...")
+
+    while True:
+
+        print("\nChecking logs...")
+
+        time.sleep(15)
+
+        try:
+
+            if not os.path.exists(INTENT_LOGS_FILE):
+
+                print("intent_logs.json not found")
+
+                continue
+
+            with open(
+                INTENT_LOGS_FILE,
+                "r"
+            ) as f:
+
+                logs = json.load(f)
+
+            if len(logs) < 10:
+
+                print(
+                    f"Only {len(logs)} logs available. Waiting for 10."
+                )
+
+                continue
+
+            last_logs = logs[-10:]
+
+            valid_logs = [
+
+                log
+
+                for log in last_logs
+
+                if log.get("intent")
+                not in [
+                    "CONVERSATION",
+                    "UNKNOWN"
+                ]
+            ]
+
+            if not valid_logs:
+
+                print(
+                    "No support-related issues detected."
+                )
+
+                continue
+
+            intents = [
+
+                log["intent"]
+
+                for log in valid_logs
+            ]
+
+            counts = Counter(intents)
+
+            top_category, top_count = counts.most_common(1)[0]
+
+            percentage = (
+                top_count /
+                len(valid_logs)
+            ) * 100
+
+            print("\nIntent Distribution:")
+            print(counts)
+
             print(
-                f"Only {len(interactions)} interactions available. Waiting for 10."
+                f"\nTop Category: "
+                f"{top_category} "
+                f"({percentage:.2f}%)"
             )
-            continue
 
-        # Last 10 interactions
-        last_queries = interactions[-10:]
+            if percentage < 50:
 
-        # Count intents
-        intents = [q["intent"] for q in last_queries]
+                print(
+                    "\nNo incident detected."
+                )
 
-        counts = Counter(intents)
+                continue
 
-        top_category, top_count = counts.most_common(1)[0]
+            incident_logs = [
 
-        percentage = (top_count / len(last_queries)) * 100
+                log
 
-        print("\nCategory Distribution:")
-        print(counts)
+                for log in valid_logs
 
-        print(
-            f"\nTop Category: {top_category} "
-            f"({top_count}/{len(last_queries)} = {percentage:.2f}%)"
-        )
+                if log["intent"] ==
+                top_category
+            ]
 
-        # Require at least 50%
-        if percentage < 50:
+            report = analyze_logs(
+                incident_logs
+            )
+
+            print("\n")
+            print("=" * 60)
+            print("INCIDENT REPORT")
+            print("=" * 60)
 
             print(
-                "\nNo incident detected. "
-                "No category crossed 50% threshold."
+                json.dumps(
+                    report,
+                    indent=4
+                )
             )
 
-            continue
+            print("=" * 60)
 
-        print(
-            f"\nThreshold crossed. "
-            f"Analyzing {top_category} with Gemini..."
-        )
+        except Exception as e:
 
-        # Send only dominant category queries
-        incident_queries = [
-            q for q in last_queries
-            if q["intent"] == top_category
-        ]
-
-        report = analyze_queries(
-            incident_queries
-        )
-
-        # Load existing incidents
-        with open(INCIDENT_FILE, "r") as f:
-            incidents = json.load(f)
-
-        incidents.append({
-            "category": top_category,
-            "percentage": percentage,
-            "report": report
-        })
-
-        with open(INCIDENT_FILE, "w") as f:
-            json.dump(
-                incidents,
-                f,
-                indent=4
+            print(
+                f"\nProactive Agent Error: {e}"
             )
 
-        notify(report)
 
-    except Exception as e:
+if __name__ == "__main__":
 
-        print("\nError:", e)
-
-def notify(report):
-
-    print("\n")
-    print("=" * 60)
-    print("INCIDENT DETECTED")
-    print("=" * 60)
-
-    print(report)
-
-    print("=" * 60)   
+    run_proactive_monitor()

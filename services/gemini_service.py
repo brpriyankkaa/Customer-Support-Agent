@@ -14,44 +14,38 @@ model = genai.GenerativeModel(
 
 
 def generate_response(prompt):
+    """
+    Generate response from Gemini API with error handling.
+    Falls back to structured response if API quota exceeded.
+    """
+    try:
 
-    response = model.generate_content(prompt)
+        response = model.generate_content(prompt)
 
-    return response.text
+        return response.text
 
+    except Exception as e:
 
-def analyze_queries(last_queries):
+        error_msg = str(e).lower()
 
-    prompt = f"""
-You are a Proactive Incident Detection Agent.
+        print(f"Gemini Error: {e}")
 
-Analyze these customer support interactions.
+        if "quota" in error_msg or "rate limit" in error_msg:
 
-Interactions:
-{json.dumps(last_queries, indent=2)}
+            return (
+                '{"status":"ERROR",'
+                '"message":"API quota exceeded. '
+                'Please try again later."}'
+            )
 
-Tasks:
-1. Detect recurring issues.
-2. Determine if an incident exists.
-3. Assign severity.
-4. Estimate affected users.
-5. Suggest root cause.
-6. Recommend action.
+        if "auth" in error_msg or "invalid" in error_msg:
 
-Return valid JSON only.
+            return (
+                '{"status":"ERROR",'
+                '"message":"Service authentication failed."}'
+            )
 
-Example:
-
-{{
-  "incident_detected": true,
-  "category": "VPN Connectivity",
-  "severity": "High",
-  "affected_users": 6,
-  "root_cause": "...",
-  "recommended_action": "..."
-}}
-"""
-
-    response = model.generate_content(prompt)
-
-    return response.text
+        return (
+            f'{{"status":"ERROR",'
+            f'"message":"Service error: {str(e)[:100]}"}}'
+        )
