@@ -44,18 +44,25 @@ def calculate_priority(
     return "MEDIUM"
 
 
-    summary = f"""
-Customer Query:
-{query}
-
-Intent:
-{intent}
-
-Escalation Reasons:
-{", ".join(reasons)}
-"""
-
-    return summary.strip()
+def is_human_agent_request(query):
+    lower = query.lower()
+    triggers = [
+        "human agent",
+        "live agent",
+        "real person",
+        "talk to someone",
+        "speak to someone",
+        "speak with",
+        "talk with",
+        "representative",
+        "meet a human",
+        "meet a person",
+        "take over",
+        "connect me",
+        "someone else",
+        "human support",
+    ]
+    return any(trigger in lower for trigger in triggers)
 
 
 def escalation_decision(
@@ -78,6 +85,14 @@ def escalation_decision(
 
         reasons.append(
             "Customer complaint detected"
+        )
+
+    if is_human_agent_request(query):
+
+        escalate = True
+
+        reasons.append(
+            "User explicitly requested a human support agent"
         )
 
     if intent == "ESCALATION_REQUEST":

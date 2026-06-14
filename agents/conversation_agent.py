@@ -47,7 +47,7 @@ class ConversationAgent:
     def _build_prompt(self, query: str) -> str:
 
         return f"""
-You are AGES AI Enterprise Assistant.
+You are Capgemini Customer Support Agent.
 
 ROLE:
 - Engage in professional conversation.
@@ -83,7 +83,7 @@ USER MESSAGE:
         if self._is_greeting(query):
             return {
                 "answer": (
-                    "Hello! I'm AGES AI Support Assistant. "
+                    "Hi! I'm Capgemini's AI Support Assistant. I'm here to help with your questions and provide support."
                     "How can I assist you today?"
                 ),
                 "sources": [],

@@ -140,3 +140,12 @@ def close_ticket(ticket_id):
             return ticket
 
     return None
+
+
+def get_ticket_by_conversation(conversation_id):
+    from services.conversation_service import get_conversation
+
+    conv = get_conversation(conversation_id)
+    if conv and conv.get("ticket_id"):
+        return get_ticket(conv["ticket_id"])
+    return None

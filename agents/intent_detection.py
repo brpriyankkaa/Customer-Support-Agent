@@ -8,8 +8,9 @@ def detect_intent(query):
     prompt = f"""
 You are an Intent Detection Agent.
 
-Classify the user query into ONE of these intents:
+Classify the user query into EXACTLY ONE of these intents:
 
+CONVERSATION
 FAQ
 POLICY_QUERY
 HR_QUERY
@@ -19,14 +20,85 @@ COMPLAINT
 ESCALATION_REQUEST
 UNKNOWN
 
+Definitions:
+
+CONVERSATION:
+- Greetings
+- Small talk
+- Introductions
+- Identity questions
+- Capability questions
+- Thanks
+- Farewells
+- Casual conversation
+
+Examples:
+
+"Hi"
+→ CONVERSATION
+
+"Hello"
+→ CONVERSATION
+
+"Good morning"
+→ CONVERSATION
+
+"Who are you?"
+→ CONVERSATION
+
+"Tell me about yourself"
+→ CONVERSATION
+
+"What can you do?"
+→ CONVERSATION
+
+"Can you help me?"
+→ CONVERSATION
+
+"Thank you"
+→ CONVERSATION
+
+"Thanks"
+→ CONVERSATION
+
+"Bye"
+→ CONVERSATION
+
+"Goodbye"
+→ CONVERSATION
+
+FAQ:
+General informational questions answerable from company knowledge.
+
+POLICY_QUERY:
+Questions specifically about company policies, ethics, compliance, conduct, SpeakUp, governance, etc.
+
+HR_QUERY:
+Questions about leave, payroll, benefits, reimbursement, hiring, employee programs, etc.
+
+IT_SUPPORT:
+Technical issues such as VPN, password reset, login issues, software issues, device issues.
+
+ACCESS_REQUEST:
+Requests for permissions, system access, account creation, access approval.
+
+COMPLAINT:
+User dissatisfaction, complaints, negative feedback.
+
+ESCALATION_REQUEST:
+User explicitly requests human support, escalation, manager involvement, or manual review.
+
+UNKNOWN:
+Intent cannot be determined.
+
 Query:
 {query}
 
-Return ONLY JSON:
+Return ONLY valid JSON:
 
 {{
-    "intent": "FAQ",
-    "issue": "General leave policy question",
+    "intent": "CONVERSATION",
+    "issue": "Agent introduction request",
     "severity": "LOW",
     "confidence": 95
 }}
@@ -34,8 +106,7 @@ Return ONLY JSON:
 Rules:
 
 - Choose exactly one intent
-- issue must be a short summary of the user's actual problem
-- issue should be between 3 and 10 words
+- issue must summarize the user's request in 3-10 words
 - severity must be one of:
 
   LOW
