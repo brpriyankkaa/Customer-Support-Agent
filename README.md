@@ -12,7 +12,7 @@ npm run preview    # preview production build
 ## Project Structure
 
 ```
-capgemini-speakup/
+frontend/
 ├── index.html                        # Entry HTML 
 ├── vite.config.js                    # Vite + React plugin
 ├── tailwind.config.js                # Capgemini design tokens
