@@ -75,15 +75,15 @@ All brand colours live in one place:
 </div>
 ```
 Six bouncing dots with staggered `animation-delay` (0.1 s increments).
-The component fades out after 950 ms.
+The component fades out after 950 ms, matching Angular's bootstrap time.
 
 ---
 
 
 ## Responsive Behaviour
 
-| Breakpoint  | Behaviour                                       |
-|-------------|-------------------------------------------------|
+| Breakpoint  | Behaviour                                    |
+|-------------|----------------------------------------------|
 | `< 500px`   | Nav links collapse; chat modal goes full-screen |
-| `500–960px` | Chat modal: `420 × 640 px` floating panel       |
-| `> 960px`   | Content column caps at `960 px`, centred        |
+| `500–960px` | Chat modal: `420 × 640 px` floating panel    |
+| `> 960px`   | Content column caps at `960 px`, centred     |

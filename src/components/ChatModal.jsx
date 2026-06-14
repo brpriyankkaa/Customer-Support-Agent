@@ -1,25 +1,25 @@
 /**
  * ChatModal
  * Interactive AI-powered Capgemini SpeakUp support agent.
- * Props:
- *   open    – boolean
- *   onClose – () => void
  */
 import { useEffect, useRef, useState } from 'react'
-import { X, Send, RotateCcw, ShieldCheck } from 'lucide-react'
+import { X, Send, RotateCcw, ShieldCheck, Paperclip, Loader2 } from 'lucide-react'
 import { useChat } from '../hooks/useChat.js'
 import ChatMessage from './ChatMessage.jsx'
+import ConfirmDialog from './ConfirmDialog.jsx'
+import FeedbackSection from './FeedbackSection.jsx'
 import { LOGO, LOGO_SRC } from '../assets/images.js'
+import { uploadChatFile } from '../services/api.js'
 
 const SUGGESTIONS = [
   "What is Capgemini's code of conduct?",
-'How can I report an ethics violation?',
-'What is the SpeakUp process?',
-'What services does Capgemini offer?'
-
+  'How can I report an ethics violation?',
+  'What is the SpeakUp process?',
+  'What services does Capgemini offer?',
 ]
 
-/** Animated typing indicator (three bouncing dots) */
+const ACCEPTED_FILE_TYPES = '.png,.jpg,.jpeg,.pdf,.txt'
+
 function TypingIndicator() {
   return (
     <div className="flex gap-2 items-start">
@@ -42,22 +42,36 @@ function TypingIndicator() {
 }
 
 export default function ChatModal({ open, onClose }) {
-  const { messages, loading, sendMessage, reset } = useChat()
+  const {
+    messages,
+    loading,
+    sendMessage,
+    reset,
+    conversationId,
+    isClosed,
+    feedbackSubmitted,
+    isEscalated,
+    initError,
+    onFeedbackSubmitted,
+    syncFromServer,
+    ticketId,
+  } = useChat()
+
   const [input, setInput] = useState('')
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
 
-  // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, isClosed, feedbackSubmitted])
 
-  // Focus input when modal opens
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 120)
   }, [open])
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -66,7 +80,7 @@ export default function ChatModal({ open, onClose }) {
 
   const handleSend = () => {
     const text = input.trim()
-    if (!text || loading) return
+    if (!text || loading || isClosed) return
     setInput('')
     sendMessage(text)
   }
@@ -79,27 +93,66 @@ export default function ChatModal({ open, onClose }) {
   }
 
   const handleSuggestion = (text) => {
+    if (isClosed) return
     setInput('')
     sendMessage(text)
   }
 
-  const handleReset = () => {
-    reset()
+  const handleResetClick = () => {
+    setShowConfirm(true)
+  }
+
+  const handleConfirmReset = async () => {
+    setShowConfirm(false)
     setInput('')
+    await reset()
+  }
+
+  function handleFeedbackSubmitted() {
+    onFeedbackSubmitted?.()
+  }
+
+  function handleFeedbackSkip() {
+    onFeedbackSubmitted?.()
+  }
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !conversationId || isClosed) return
+
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    const allowed = ['png', 'jpg', 'jpeg', 'pdf', 'txt']
+    if (!allowed.includes(ext)) {
+      alert('Only png, jpg, jpeg, pdf, and txt files are allowed.')
+      e.target.value = ''
+      return
+    }
+
+    setUploading(true)
+    try {
+      await uploadChatFile(conversationId, file)
+      await syncFromServer(conversationId)
+    } catch (err) {
+      console.error('File upload failed:', err)
+      alert('Failed to upload file. Please try again.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
   }
 
   if (!open) return null
 
+  const inputDisabled = loading || isClosed || uploading
+
   return (
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 z-[9998] transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal panel */}
       <div
         role="dialog"
         aria-modal="true"
@@ -110,23 +163,19 @@ export default function ChatModal({ open, onClose }) {
                    flex flex-col overflow-hidden
                    border border-gray-200"
       >
-
-        {/* ── Header ── */}
         <div className="bg-capgemini-darkblue px-4 py-3 flex items-center gap-3 flex-shrink-0">
-          <img
-            src={LOGO}
-            alt="Capgemini"
-            className="h-10 object-contain"
-          />
+          <img src={LOGO} alt="Capgemini" className="h-10 object-contain" />
           <div className="flex-1 min-w-0">
             <p className="text-white font-semibold text-[13.5px] leading-tight">
               SpeakUp Support Agent
             </p>
-            <p className="text-blue-200 text-[11px]">Confidential &amp; Secure</p>
+            <p className="text-blue-200 text-[11px]">
+              {isEscalated ? 'Connected to human support' : 'Confidential & Secure'}
+            </p>
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={handleReset}
+              onClick={handleResetClick}
               title="Start new conversation"
               className="text-blue-200 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
             >
@@ -142,7 +191,6 @@ export default function ChatModal({ open, onClose }) {
           </div>
         </div>
 
-        {/* ── Confidentiality notice ── */}
         <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-start gap-2 flex-shrink-0">
           <ShieldCheck size={14} className="text-capgemini-navy mt-0.5 flex-shrink-0" />
           <p className="text-[11.5px] text-capgemini-navy leading-snug">
@@ -159,13 +207,15 @@ export default function ChatModal({ open, onClose }) {
           </p>
         </div>
 
-        {/* ── Messages area ── */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {initError && (
+          <div className="bg-red-50 border-b border-red-100 px-4 py-2">
+            <p className="text-[12px] text-red-700">{initError}</p>
+          </div>
+        )}
 
-          {/* Welcome message (shown when no history) */}
-          {messages.length === 0 && (
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {messages.length === 0 && !loading && (
             <div className="space-y-4">
-              {/* Greeting bubble */}
               <div className="flex gap-2 items-start">
                 <img
                   src={LOGO_SRC}
@@ -183,81 +233,130 @@ export default function ChatModal({ open, onClose }) {
                 </div>
               </div>
 
-              {/* Suggestion chips */}
-              <div className="pl-9">
-                <p className="text-[11px] text-gray-400 mb-2 uppercase tracking-wide font-semibold">
-                  Common questions
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => handleSuggestion(s)}
-                      className="text-[12px] text-capgemini-navy border border-capgemini-navy/30
-                                 rounded-full px-3 py-1.5 hover:bg-capgemini-navy hover:text-white
-                                 transition-colors bg-white leading-none"
-                    >
-                      {s}
-                    </button>
-                  ))}
+              {!isClosed && (
+                <div className="pl-9">
+                  <p className="text-[11px] text-gray-400 mb-2 uppercase tracking-wide font-semibold">
+                    Common questions
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => handleSuggestion(s)}
+                        className="text-[12px] text-capgemini-navy border border-capgemini-navy/30
+                                   rounded-full px-3 py-1.5 hover:bg-capgemini-navy hover:text-white
+                                   transition-colors bg-white leading-none"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
-          {/* Conversation history */}
-          {messages.map((msg, i) => (
-            <ChatMessage key={i} role={msg.role} content={msg.content} />
+          {messages.map((msg) => (
+            <div key={msg.id}>
+              <ChatMessage
+                role={msg.role}
+                content={msg.content}
+                messageType={msg.messageType}
+                file={msg.file}
+                sender={msg.sender}
+              />
+
+              {/* Inline feedback prompt inserted by backend when message_type === 'feedback_prompt' */}
+              {msg.messageType === 'feedback_prompt' && (
+                <div className="mt-2">
+                  <FeedbackSection
+                    ticketId={ticketId}
+                    onSubmitted={handleFeedbackSubmitted}
+                    alreadySubmitted={feedbackSubmitted}
+                    onSkip={handleFeedbackSkip}
+                  />
+                </div>
+              )}
+            </div>
           ))}
 
-          {/* Typing indicator */}
           {loading && <TypingIndicator />}
 
-          {/* Scroll anchor */}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── Input area ── */}
         <div className="border-t border-gray-200 px-3 py-3 flex-shrink-0 bg-white">
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your question…"
-              rows={1}
-              disabled={loading}
-              className="flex-1 resize-none rounded-xl border border-gray-300 px-3.5 py-2.5
-                         text-[13.5px] text-gray-800 placeholder-gray-400
-                         focus:outline-none focus:ring-2 focus:ring-capgemini-darkblue/40
-                         focus:border-capgemini-darkblue disabled:opacity-50
-                         leading-snug max-h-32 overflow-y-auto"
-              style={{ minHeight: '42px' }}
-              onInput={(e) => {
-                // Auto-grow textarea
-                e.target.style.height = 'auto'
-                e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px'
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || loading}
-              className="flex-shrink-0 w-10 h-10 rounded-xl bg-capgemini-darkblue
-                         flex items-center justify-center text-white
-                         disabled:opacity-40 disabled:cursor-not-allowed
-                         hover:bg-capgemini-navy transition-colors"
-              aria-label="Send message"
-            >
-              <Send size={16} />
-            </button>
-          </div>
+          {isClosed ? (
+            <p className="text-center text-[12px] text-slate-500 py-2">
+              This conversation has been closed. Start a new session to continue.
+            </p>
+          ) : (
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={inputDisabled}
+                className="flex-shrink-0 w-10 h-10 rounded-xl border border-gray-300
+                           flex items-center justify-center text-slate-500
+                           hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Upload file"
+              >
+                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_FILE_TYPES}
+                className="hidden"
+                onChange={handleFileSelect}
+                disabled={inputDisabled}
+              />
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isEscalated ? 'Message support agent…' : 'Type your question…'}
+                rows={1}
+                disabled={inputDisabled}
+                className="flex-1 resize-none rounded-xl border border-gray-300 px-3.5 py-2.5
+                           text-[13.5px] text-gray-800 placeholder-gray-400
+                           focus:outline-none focus:ring-2 focus:ring-capgemini-darkblue/40
+                           focus:border-capgemini-darkblue disabled:opacity-50
+                           leading-snug max-h-32 overflow-y-auto"
+                style={{ minHeight: '42px' }}
+                onInput={(e) => {
+                  e.target.style.height = 'auto'
+                  e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px'
+                }}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || inputDisabled}
+                className="flex-shrink-0 w-10 h-10 rounded-xl bg-capgemini-darkblue
+                           flex items-center justify-center text-white
+                           disabled:opacity-40 disabled:cursor-not-allowed
+                           hover:bg-capgemini-navy transition-colors"
+                aria-label="Send message"
+              >
+                <Send size={16} />
+              </button>
+            </div>
+          )}
           <p className="text-[10.5px] text-gray-400 mt-1.5 text-center">
             Powered by Capgemini · Team Missing Semicolon
           </p>
         </div>
-
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Clear Conversation?"
+        message={"Are you sure you want to clear this conversation?\n\nThis action cannot be undone."}
+        onConfirm={handleConfirmReset}
+        onCancel={() => setShowConfirm(false)}
+        confirmLabel="Yes, Clear"
+        cancelLabel="Cancel"
+      />
     </>
   )
 }

@@ -7,6 +7,7 @@ import ActionGrid     from './components/ActionGrid.jsx'
 import Footer         from './components/Footer.jsx'
 import ChatModal      from './components/ChatModal.jsx'
 import AdminDashboard from './components/AdminDashboard.jsx'
+// TrendingIssues removed from customer UI — admin only
 
 export default function App() {
   const [loading,     setLoading]     = useState(true)
