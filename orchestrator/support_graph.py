@@ -1,5 +1,7 @@
 from typing import NotRequired, TypedDict
+
 from langgraph.graph import StateGraph, START, END
+
 from agents.intent_detection import detect_intent
 from agents.conversation_agent import conversation_agent
 from agents.response_agent import response_agent
