@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+src/
+index.html
+package-lock.json
+package.json
+postcss.config.js
+README.md
+tailwind.config.js
+vite.config.js
