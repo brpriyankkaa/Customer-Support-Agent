@@ -38,6 +38,7 @@ from services.knowledge_base_service import (
     read_document_content,
 )
 from services.trending_service import get_trending_issues
+from services.proactive_alerts_service import get_active_alerts, resolve_alert
 from services.indexing_service import rebuild_index
 from services.retrieval import reload_index
 from services.feedback_service import submit_feedback, get_feedback_for_ticket, submit_skip
@@ -437,6 +438,27 @@ def close(ticket_id: str):
 @app.get("/trending-issues")
 def trending_issues():
     return get_trending_issues()
+
+
+@app.get("/proactive-alerts")
+def proactive_alerts():
+    """Get all proactive incident alerts (both ACTIVE and SOLVED).
+    
+    Returns alerts where occurrence percentage >= 50%.
+    Sorted by ACTIVE first (newest), then SOLVED (newest).
+    """
+    return get_active_alerts()
+
+
+@app.post("/proactive-alerts/{alert_id}/resolve")
+def resolve_proactive_alert(alert_id: str):
+    """Mark a proactive alert as SOLVED.
+    
+    Updates status to 'SOLVED' and adds resolved_timestamp.
+    Persists changes to proactive_alerts.json.
+    """
+    resolve_alert(alert_id)
+    return {"success": True, "message": f"Alert {alert_id} marked as SOLVED"}
 
 
 @app.get("/knowledge-base")

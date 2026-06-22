@@ -4,6 +4,7 @@ import time
 from collections import Counter
 
 from services.gemini_service import generate_response
+from services.proactive_alerts_service import add_alert
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -94,7 +95,7 @@ def run_proactive_monitor():
 
         print("\nChecking logs...")
 
-        time.sleep(15)
+        time.sleep(60)
 
         try:
 
@@ -202,6 +203,14 @@ def run_proactive_monitor():
             )
 
             print("=" * 60)
+
+            # Save the alert to proactive alerts service
+            add_alert(
+                incident_report=report,
+                percentage=percentage,
+                category=top_category
+            )
+            print(f"\nAlert saved for {top_category} with {percentage:.2f}% occurrence.")
 
         except Exception as e:
 

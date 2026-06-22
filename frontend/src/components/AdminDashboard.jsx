@@ -1,12 +1,13 @@
-import { useEffect, useState, useRef } from 'react'
-import { X, CheckCircle2, UserPlus, MessageSquare, Send, AlertTriangle } from 'lucide-react'
+import { AlertTriangle, MessageSquare, Send, UserPlus, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  fetchTickets,
-  fetchTicketMessages,
-  takeoverTicket,
-  replyTicket,
   closeTicket,
-  fetchTrendingIssues,
+  fetchProactiveAlerts,
+  fetchTicketMessages,
+  fetchTickets,
+  replyTicket,
+  resolveProactiveAlert,
+  takeoverTicket,
 } from '../services/api.js'
 import KnowledgeBaseAdmin from './KnowledgeBaseAdmin.jsx'
 
@@ -25,20 +26,18 @@ export default function AdminDashboard({ onClose }) {
   const [messages, setMessages] = useState([])
   const [replyText, setReplyText] = useState('')
   const [loading, setLoading] = useState(false)
-  const [trendingIssues, setTrendingIssues] = useState([])
+  const [proactiveAlerts, setProactiveAlerts] = useState([])
   const pollRef = useRef(null)
 
   useEffect(() => {
     loadTickets()
-    loadTrending()
+    loadProactiveAlerts()
 
     pollRef.current = setInterval(() => {
       loadTickets()
+      loadProactiveAlerts()
       if (selectedTicket) {
         loadMessages(selectedTicket.ticket_id)
-      }
-      if (activeTab === 'trending') {
-        loadTrending()
       }
     }, POLL_INTERVAL_MS)
 
@@ -65,12 +64,24 @@ export default function AdminDashboard({ onClose }) {
     }
   }
 
-  async function loadTrending() {
+  async function loadProactiveAlerts() {
     try {
-      const data = await fetchTrendingIssues()
-      setTrendingIssues(data || [])
+      const data = await fetchProactiveAlerts()
+      setProactiveAlerts(data || [])
     } catch (error) {
-      console.error('Unable to load trending issues:', error)
+      console.error('Unable to load proactive alerts:', error)
+    }
+  }
+
+  async function handleResolveAlert(alertId) {
+    setLoading(true)
+    try {
+      await resolveProactiveAlert(alertId)
+      await loadProactiveAlerts()
+    } catch (error) {
+      console.error('Failed to resolve alert:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -175,33 +186,68 @@ export default function AdminDashboard({ onClose }) {
 
         {activeTab === 'trending' && (
           <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle size={20} className="text-amber-600" />
-              <h3 className="text-lg font-semibold text-slate-900">Trending Issues</h3>
-            </div>
-            {trendingIssues.length === 0 && (
-              <p className="text-sm text-slate-500">No trending issues above threshold.</p>
-            )}
-            <div className="space-y-3">
-              {trendingIssues.map((issue, index) => (
-                <div
-                  key={`${issue.issue}-${index}`}
-                  className={`rounded-2xl border p-5 bg-white ${
-                    issue.severity === 'HIGH' ? 'border-red-200 bg-red-50/30' : 'border-gray-200'
-                  }`}
-                >
-                  <p className="text-sm font-semibold text-slate-900">
-                    ⚠ Trending Issue: {issue.issue}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
-                    <span>Occurrences: {issue.occurrences} Users</span>
-                    <span className={issue.severity === 'HIGH' ? 'text-red-600 font-semibold' : ''}>
-                      Severity: {issue.severity}
-                    </span>
-                    <span>Status: {issue.status}</span>
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle size={20} className="text-red-600" />
+                <h3 className="text-lg font-semibold text-slate-900">Proactive Incident Alerts (≥50%)</h3>
+              </div>
+              {proactiveAlerts.length === 0 && (
+                <p className="text-sm text-slate-500">No alerts detected.</p>
+              )}
+
+              {proactiveAlerts.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-3">Incident Alerts</h4>
+                  <div className="space-y-3">
+                    {proactiveAlerts.map((alert) => (
+                      <div
+                        key={alert.id}
+                        className={`rounded-2xl border p-5 transition-all ${
+                          alert.status === 'SOLVED'
+                            ? 'border-gray-200 bg-gray-50/50 opacity-60'
+                            : alert.severity === 'HIGH' || alert.severity === 'CRITICAL'
+                            ? 'border-red-300 bg-red-50/50'
+                            : alert.severity === 'MEDIUM'
+                            ? 'border-yellow-300 bg-yellow-50/50'
+                            : 'border-blue-300 bg-blue-50/50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-900">
+                                {alert.status === 'SOLVED' ? '✓' : '🚨'} Incident: {alert.category}
+                              </p>
+                              {alert.status === 'SOLVED' && (
+                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-200 text-green-800">
+                                  SOLVED
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 space-y-1 text-xs text-slate-700">
+                              <p><strong>Occurrence Percentage:</strong> {alert.percentage.toFixed(2)}%</p>
+                              <p><strong>Severity:</strong> <span className={alert.severity === 'HIGH' ? 'text-red-600 font-semibold' : ''}>{alert.severity}</span></p>
+                              <p><strong>Affected Users:</strong> {alert.affected_users}</p>
+                              <p><strong>Root Cause:</strong> {alert.root_cause}</p>
+                              <p><strong>Recommended Action:</strong> {alert.recommended_action}</p>
+                              <p><strong>Status:</strong> {alert.status}</p>
+                            </div>
+                          </div>
+                          {alert.status === 'ACTIVE' && (
+                            <button
+                              onClick={() => handleResolveAlert(alert.id)}
+                              disabled={loading}
+                              className="ml-4 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition disabled:opacity-50 whitespace-nowrap"
+                            >
+                              Close Issue
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -213,15 +259,17 @@ export default function AdminDashboard({ onClose }) {
                 <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Tickets</h3>
                 <span className="text-xs text-slate-400">{tickets.length} total</span>
               </div>
-              {/* Proactive alerts shown above tickets for Admins */}
-              {trendingIssues.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-2">Proactive Alerts</h4>
+              {/* Proactive incident alerts shown above tickets for Admins */}
+              {proactiveAlerts.filter(a => a.status === 'ACTIVE').length > 0 && (
+                <div className="mb-4 p-3 rounded-xl border-2 border-red-300 bg-red-50">
+                  <h4 className="text-sm font-semibold text-red-900 mb-2">🚨 Active Incidents</h4>
                   <div className="space-y-2">
-                    {trendingIssues.map((issue, idx) => (
-                      <div key={idx} className="rounded-xl border p-3 bg-white">
-                        <p className="text-sm font-semibold">{issue.issue}</p>
-                        <div className="text-xs text-slate-500 mt-1">Occurrences: {issue.occurrences} • Severity: {issue.severity}</div>
+                    {proactiveAlerts.filter(a => a.status === 'ACTIVE').map((alert) => (
+                      <div key={alert.id} className="rounded-lg border border-red-200 p-2 bg-white">
+                        <p className="text-xs font-semibold text-slate-900">{alert.category}</p>
+                        <div className="text-xs text-slate-600 mt-1">
+                          <p>{alert.percentage.toFixed(2)}% • {alert.severity}</p>
+                        </div>
                       </div>
                     ))}
                   </div>
