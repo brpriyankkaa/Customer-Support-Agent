@@ -113,6 +113,16 @@ export async function fetchTrendingIssues() {
   return requestJson("/trending-issues");
 }
 
+export async function fetchProactiveAlerts() {
+  return requestJson("/proactive-alerts");
+}
+
+export async function resolveProactiveAlert(alertId) {
+  return requestJson(`/proactive-alerts/${alertId}/resolve`, {
+    method: "POST",
+  });
+}
+
 export async function fetchKnowledgeBase() {
   return requestJson("/knowledge-base");
 }

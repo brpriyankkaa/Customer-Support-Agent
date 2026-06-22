@@ -11,7 +11,7 @@ export default function Footer() {
         rel="noopener noreferrer"
         className="text-[12px] text-capgemini-navy hover:underline"
       >
-        &copy; Missing Semicolon 2026 - 2027
+        Missing Semicolon 2026 - 2027
       </a>
     </footer>
   )
