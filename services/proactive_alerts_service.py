@@ -74,7 +74,7 @@ def resolve_alert(alert_id):
             alert["status"] = "SOLVED"
             alert["resolved_timestamp"] = datetime.now().isoformat()
             break
-    save_alerts(alerts)
+    save_alerts(alerts )
 
 
 def clear_old_alerts(days=7):
